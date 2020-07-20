@@ -9,8 +9,8 @@ TypeScript >= 2.4.1
 
 ```ts
 //compiler.js
-const typeChecker = require("ts-type-checker");
-typeChecker(["./test.ts"]);
+const typesValidator = require("ts-types-validator");
+typesValidator(["./index.ts"]);
 ```
 
 ```ts

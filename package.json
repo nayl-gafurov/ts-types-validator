@@ -1,6 +1,6 @@
 {
-  "name": "ts-type-checker",
-  "version": "0.0.0",
+  "name": "ts-types-validator",
+  "version": "1.0.0",
   "description": "Typescript type validator",
   "main": "index.js",
   "scripts": {
