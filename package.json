@@ -1,0 +1,27 @@
+{
+  "name": "ts-type-checker",
+  "version": "0.0.0",
+  "description": "Typescript type validator",
+  "main": "index.js",
+  "scripts": {
+    "prepare": "tsc"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github.com/GafurovNayl/ts-type-checker.git"
+  },
+  "keywords": [
+    "TypeScript"
+  ],
+  "author": "Nayl Gafurov",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^3.9.5"
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "transformer.js",
+    "transformer.ts"
+  ]
+}
