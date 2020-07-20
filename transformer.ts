@@ -68,7 +68,7 @@ function visiterForFunction(node: ts.Node, program: ts.Program): ts.Node | undef
 
           return ts.createFunctionDeclaration(
             undefined,
-            undefined,
+            exportModifier ? [ts.createModifier(ts.SyntaxKind.ExportKeyword)]: undefined,
             undefined,
             ts.createIdentifier(name),
             undefined,
