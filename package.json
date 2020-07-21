@@ -8,7 +8,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git@github.com/GafurovNayl/ts-type-checker.git"
+    "url": "git@github.com/GafurovNayl/ts-types-validator.git"
   },
   "keywords": [
     "TypeScript"

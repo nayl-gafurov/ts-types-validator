@@ -1,6 +1,6 @@
-# ts-type-checker
+# ts-types-validator
 
-Typescript type validator
+Typescript types validator
 
 # Requirement
 TypeScript >= 2.4.1
@@ -8,7 +8,7 @@ TypeScript >= 2.4.1
 # How to use this package
 
 ```ts
-//compiler.js
+//compile.js
 const typesValidator = require("ts-types-validator");
 typesValidator(["./index.ts"]);
 ```
@@ -18,42 +18,46 @@ typesValidator(["./index.ts"]);
 type someType = string | boolean;
 
 export interface Props {
-  a: string;
-  b: number;
-  c: boolean;
-  d: string | number | boolean;
-  e: { f: number, g: () => any };
-  h: "qwerty";
-  i: someType;
-  j: false;
-  k: InsideProps;
-  l: Array<number | string>  // the program so far only supports a generic array type, Array<elemType>
+  string: string;
+  number: number;
+  boolean: boolean;
+  func: ()=>any;
+  union: string | number | boolean;
+  obj: { objNumber: number, objFunc: () => any };
+  text: "qwerty";
+  type: someType;
+  false: false;
+  interface: InsideProps;
+  array: Array<number | string>  // the program so far only supports a generic array type, Array<elemType>
 }
 
 export interface InsideProps {
-  m: 8 | "rrr"
-  n: { o: string | number | boolean, p: undefined }
+  union: 8 | "rrr"
+  obj: { objUnion: string | number | boolean, objUndef: undefined }
 }
 
 export declare function isProps(obj: { [k: string]: any }): obj is Props
 
 const obj = {
-  a: "hello",
-  b: 5,
-  c: true,
-  d: "string",
-  e: { f: 8, g: () => { return 2 } },
-  h: "qwerty",
-  i: true,
-  j: false,
-  l: { x: 8, z: { q: true, w: undefined } },
-  m: [1, 2, "e3"]
+  string: "hello",
+  number: 5,
+  boolean: true,
+  func: ()=>1,
+  union: "a",
+  obj: { objNumber: 8, objFunc: () => 2 },
+  text: "qwerty",
+  type: true,
+  false: false,
+  interface: { union: 8, obj: { objUnion: true, objUndef: undefined } },
+  array: [1, 2, "e3"]
 }
 
 console.log(isProps(obj))
 ```
-
-compiled result
+```sh
+node compile.js
+```
+Compiled result :
 
 ```ts
 "use strict";
@@ -63,118 +67,125 @@ function isProps(obj) {
     var data = {
         Props: function (arg) { return [
             function () {
-                var result = "a" in arg && typeof arg.a === "string";
+                var result = "string" in arg && typeof arg.string === "string";
                 if (!result) {
-                    console.warn("a MUST be : string");
+                    console.warn("string MUST be : string");
                 }
                 return result;
             },
             function () {
-                var result = "b" in arg && typeof arg.b === "number";
+                var result = "number" in arg && typeof arg.number === "number";
                 if (!result) {
-                    console.warn("b MUST be : number");
+                    console.warn("number MUST be : number");
                 }
                 return result;
             },
             function () {
-                var result = "c" in arg && typeof arg.c === "boolean";
+                var result = "boolean" in arg && typeof arg.boolean === "boolean";
                 if (!result) {
-                    console.warn("c MUST be : boolean");
+                    console.warn("boolean MUST be : boolean");
                 }
                 return result;
             },
             function () {
-                var result = "d" in arg && (typeof arg.d === "string" || typeof arg.d === "number" || typeof arg.d === "boolean");
+                var result = "func" in arg && typeof arg.func === "function";
                 if (!result) {
-                    console.warn("d MUST be : string | number | boolean");
+                    console.warn("func MUST be : ()=>any");
                 }
                 return result;
             },
             function () {
-                var result = "e" in arg && [
+                var result = "union" in arg && (typeof arg.union === "string" || typeof arg.union === "number" || typeof arg.union === "boolean");
+                if (!result) {
+                    console.warn("union MUST be : string | number | boolean");
+                }
+                return result;
+            },
+            function () {
+                var result = "obj" in arg && [
                     function () {
-                        var result = "f" in arg.e && typeof arg.e.f === "number";
+                        var result = "objNumber" in arg.obj && typeof arg.obj.objNumber === "number";
                         if (!result) {
-                            console.warn("e.f MUST be : number");
+                            console.warn("obj.objNumber MUST be : number");
                         }
                         return result;
                     },
                     function () {
-                        var result = "g" in arg.e && typeof arg.e.g === "function";
+                        var result = "objFunc" in arg.obj && typeof arg.obj.objFunc === "function";
                         if (!result) {
-                            console.warn("e.g MUST be : () => any");
+                            console.warn("obj.objFunc MUST be : () => any");
                         }
                         return result;
                     }
                 ].every(function (item) { return item(); });
                 if (!result) {
-                    console.warn("e MUST be : { f: number, g: () => any }");
+                    console.warn("obj MUST be : { objNumber: number, objFunc: () => any }");
                 }
                 return result;
             },
             function () {
-                var result = "h" in arg && arg.h === "qwerty";
+                var result = "text" in arg && arg.text === "qwerty";
                 if (!result) {
-                    console.warn("h MUST be : \"qwerty\"");
+                    console.warn("text MUST be : \"qwerty\"");
                 }
                 return result;
             },
             function () {
-                var result = "i" in arg && (typeof arg.i === "string" || typeof arg.i === "boolean");
+                var result = "type" in arg && (typeof arg.type === "string" || typeof arg.type === "boolean");
                 if (!result) {
-                    console.warn("i MUST be : someType");
+                    console.warn("type MUST be : someType");
                 }
                 return result;
             },
             function () {
-                var result = "j" in arg && arg.j === false;
+                var result = "false" in arg && arg.false === false;
                 if (!result) {
-                    console.warn("j MUST be : false");
+                    console.warn("false MUST be : false");
                 }
                 return result;
             },
             function () {
-                var result = "k" in arg && data.InsideProps(arg.k);
+                var result = "interface" in arg && (typeof arg.interface === "object" && data.InsideProps(arg.interface));
                 if (!result) {
-                    console.warn("k MUST be : InsideProps");
+                    console.warn("interface MUST be : InsideProps");
                 }
                 return result;
             },
             function () {
-                var result = "l" in arg && (Array.isArray(arg.l) && arg.l.every(function (item) { return typeof item === "number" || typeof item === "string"; }));
+                var result = "array" in arg && (Array.isArray(arg.array) && arg.array.every(function (item) { return typeof item === "number" || typeof item === "string"; }));
                 if (!result) {
-                    console.warn("l MUST be : Array<number | string>");
+                    console.warn("array MUST be : Array<number | string>");
                 }
                 return result;
             }
         ].every(function (item) { return item(); }); },
         InsideProps: function (arg) { return [
             function () {
-                var result = "m" in arg && (arg.m === 8 || arg.m === "rrr");
+                var result = "union" in arg && (arg.union === 8 || arg.union === "rrr");
                 if (!result) {
-                    console.warn("m MUST be : 8 | \"rrr\"");
+                    console.warn("union MUST be : 8 | \"rrr\"");
                 }
                 return result;
             },
             function () {
-                var result = "n" in arg && [
+                var result = "obj" in arg && [
                     function () {
-                        var result = "o" in arg.n && (typeof arg.n.o === "string" || typeof arg.n.o === "number" || typeof arg.n.o === "boolean");
+                        var result = "objUnion" in arg.obj && (typeof arg.obj.objUnion === "string" || typeof arg.obj.objUnion === "number" || typeof arg.obj.objUnion === "boolean");
                         if (!result) {
-                            console.warn("n.o MUST be : string | number | boolean");
+                            console.warn("obj.objUnion MUST be : string | number | boolean");
                         }
                         return result;
                     },
                     function () {
-                        var result = "p" in arg.n && typeof arg.n.p === "undefined";
+                        var result = "objUndef" in arg.obj && typeof arg.obj.objUndef === "undefined";
                         if (!result) {
-                            console.warn("n.p MUST be : undefined");
+                            console.warn("obj.objUndef MUST be : undefined");
                         }
                         return result;
                     }
                 ].every(function (item) { return item(); });
                 if (!result) {
-                    console.warn("n MUST be : { o: string | number | boolean, p: undefined }");
+                    console.warn("obj MUST be : { objUnion: string | number | boolean, objUndef: undefined }");
                 }
                 return result;
             }
@@ -184,17 +195,18 @@ function isProps(obj) {
 }
 exports.isProps = isProps;
 var obj = {
-    a: "hello",
-    b: 5,
-    c: true,
-    d: "string",
-    e: { f: 8, g: function () { return 2; } },
-    h: "qwerty",
-    i: true,
-    j: false,
-    l: { x: 8, z: { q: true, w: undefined } },
-    m: [1, 2, "e3"]
+    string: "hello",
+    number: 5,
+    boolean: true,
+    func: function () { return 1; },
+    union: "a",
+    obj: { objNumber: 8, objFunc: function () { return 2; } },
+    text: "qwerty",
+    type: true,
+    false: false,
+    interface: { union: 8, obj: { objUnion: true, objUndef: undefined } },
+    array: [1, 2, "e3"]
 };
-console.log(isProps(obj));
+console.log(isProps(obj));  // true
 
 ```
