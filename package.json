@@ -1,6 +1,6 @@
 {
   "name": "ts-types-validator",
-  "version": "1.0.0",
+  "version": "1.0.3",
   "description": "Typescript type validator",
   "main": "index.js",
   "scripts": {
@@ -20,8 +20,7 @@
   },
   "files": [
     "index.js",
-    "index.d.ts",
     "transformer.js",
-    "transformer.ts"
+    "compile/compile.js"
   ]
 }
