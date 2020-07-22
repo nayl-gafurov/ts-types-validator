@@ -7,7 +7,6 @@ const argName = "arg";
 let intersectNodes: ts.InterfaceDeclaration[];
 let isIntersects: boolean = false;
 
-
 export default function transformer(program: ts.Program): ts.TransformerFactory<ts.SourceFile> {
   return (context: ts.TransformationContext) => (file: ts.SourceFile) => {
     return visitNode(file, program, context);
@@ -42,15 +41,29 @@ function visiterForFunction(node: ts.Node, program: ts.Program): ts.Node | undef
         const cm = new ChainManager(program);
 
         if (ts.isTypeReferenceNode(type)) {
-          const declaration = getDeclarationsFromTypeReferenceNode(type, program);
+          let declaration = getDeclarationsFromTypeReferenceNode(type, program);
 
-          if (declaration && ts.isInterfaceDeclaration(declaration)) {
-            cm.init(declaration);
-            isIntersects = cm.intersectChains.length > 0;
-            intersectNodes = cm.intersectNodes;
-            expression = interfaceDeclarationHandler(declaration, program, true);
-            propsName = type.getText();
+          if (declaration) {
+
+            if (ts.isImportSpecifier(declaration)) {
+              const checker = program.getTypeChecker();
+              const symbol = checker.getSymbolAtLocation(declaration.name)
+              if (symbol) {
+                const type = checker.getDeclaredTypeOfSymbol(symbol);
+                declaration = type.symbol.declarations[0];
+              }
+            }
+
+            if (ts.isInterfaceDeclaration(declaration)) {
+              cm.init(declaration);
+              isIntersects = cm.intersectChains.length > 0;
+              intersectNodes = cm.intersectNodes;
+              expression = interfaceDeclarationHandler(declaration, program, true);
+              propsName = type.getText();
+            }
           }
+
+
         }
         if (ts.isTypeLiteralNode(type)) {
 
@@ -436,7 +449,7 @@ function interfaceDeclarationHandler(node: ts.InterfaceDeclaration | ts.TypeLite
       )
     )
 
-    if (isIntersects && intersectNodes.some(item => item === node) ) {
+    if (isIntersects && intersectNodes.some(item => item === node)) {
       return ts.createParen(ts.createBinary(
         ts.createCall(
           ts.createIdentifier("isIntersectObject"),
@@ -449,7 +462,7 @@ function interfaceDeclarationHandler(node: ts.InterfaceDeclaration | ts.TypeLite
         ts.createToken(ts.SyntaxKind.BarBarToken),
         condition
       ))
-    }else{
+    } else {
       return condition
     }
   }
@@ -540,8 +553,8 @@ function propertySignatureHandler(node: ts.PropertySignature | ts.ParameterDecla
             undefined,
             [
               ts.createStringLiteral("\x1b[33m" + getFullAccessName(access)),
-              ts.createStringLiteral( "\x1b[36m MUST be type of: "),
-              ts.createStringLiteral("\x1b[33m"+nodeType.getText()+ "\x1b[39m"),
+              ts.createStringLiteral("\x1b[36m MUST be type of: "),
+              ts.createStringLiteral("\x1b[33m" + nodeType.getText() + "\x1b[39m"),
             ]
           ))],
           true
@@ -658,7 +671,7 @@ function literalTypeHandler(node: ts.LiteralTypeNode, program: ts.Program, objPr
   }
 }
 
-function unionTypeHandler(node: ts.UnionTypeNode |  Array<ts.TypeNode>, program: ts.Program, objPropsAccess: ts.PropertyAccessExpression | ts.Identifier): ts.Expression {
+function unionTypeHandler(node: ts.UnionTypeNode | Array<ts.TypeNode>, program: ts.Program, objPropsAccess: ts.PropertyAccessExpression | ts.Identifier): ts.Expression {
   let types;
   let lastType;
 
