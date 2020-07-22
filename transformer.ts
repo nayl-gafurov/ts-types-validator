@@ -40,19 +40,14 @@ function visiterForFunction(node: ts.Node, program: ts.Program): ts.Node | undef
         let propsName;
         const cm = new ChainManager(program);
 
+        
+
         if (ts.isTypeReferenceNode(type)) {
+
           let declaration = getDeclarationsFromTypeReferenceNode(type, program);
-
+          declaration = importSpecifierHandler(declaration, program);
+          
           if (declaration) {
-
-            if (ts.isImportSpecifier(declaration)) {
-              const checker = program.getTypeChecker();
-              const symbol = checker.getSymbolAtLocation(declaration.name)
-              if (symbol) {
-                const type = checker.getDeclaredTypeOfSymbol(symbol);
-                declaration = type.symbol.declarations[0];
-              }
-            }
 
             if (ts.isInterfaceDeclaration(declaration)) {
               cm.init(declaration);
@@ -152,6 +147,18 @@ function visiterForFunction(node: ts.Node, program: ts.Program): ts.Node | undef
     }
   }
   return;
+}
+
+function importSpecifierHandler(node: ts.Declaration | undefined, program: ts.Program): ts.Declaration | undefined {
+  if (node && ts.isImportSpecifier(node)) {
+    const checker = program.getTypeChecker();
+    const symbol = checker.getSymbolAtLocation(node.name)
+    if (symbol) {
+      const type = checker.getDeclaredTypeOfSymbol(symbol);
+      return type.symbol.declarations[0];
+    }
+  }
+  return node;
 }
 
 function generateMapForIntersectNodes(intersectNodeNames: string[]) {
@@ -304,7 +311,9 @@ export function getDeclarationsFromTypeReferenceNode(node: ts.TypeReferenceNode,
 }
 
 function typeReferenceHandler(node: ts.TypeReferenceNode, program: ts.Program, objIdentifier: ts.PropertyAccessExpression | ts.Identifier): ts.Expression {
-  const declaration = getDeclarationsFromTypeReferenceNode(node, program);
+  let declaration = getDeclarationsFromTypeReferenceNode(node, program);
+
+  declaration = importSpecifierHandler(declaration, program);
 
   if (declaration) {
     if (ts.isInterfaceDeclaration(declaration)) {

@@ -36,13 +36,16 @@ function visiterForFunction(node, program) {
                 let propsName;
                 const cm = new ChainManager_1.ChainManager(program);
                 if (typescript_1.default.isTypeReferenceNode(type)) {
-                    const declaration = getDeclarationsFromTypeReferenceNode(type, program);
-                    if (declaration && typescript_1.default.isInterfaceDeclaration(declaration)) {
-                        cm.init(declaration);
-                        isIntersects = cm.intersectChains.length > 0;
-                        intersectNodes = cm.intersectNodes;
-                        expression = interfaceDeclarationHandler(declaration, program, true);
-                        propsName = type.getText();
+                    let declaration = getDeclarationsFromTypeReferenceNode(type, program);
+                    declaration = importSpecifierHandler(declaration, program);
+                    if (declaration) {
+                        if (typescript_1.default.isInterfaceDeclaration(declaration)) {
+                            cm.init(declaration);
+                            isIntersects = cm.intersectChains.length > 0;
+                            intersectNodes = cm.intersectNodes;
+                            expression = interfaceDeclarationHandler(declaration, program, true);
+                            propsName = type.getText();
+                        }
                     }
                 }
                 if (typescript_1.default.isTypeLiteralNode(type)) {
@@ -72,6 +75,17 @@ function visiterForFunction(node, program) {
         }
     }
     return;
+}
+function importSpecifierHandler(node, program) {
+    if (node && typescript_1.default.isImportSpecifier(node)) {
+        const checker = program.getTypeChecker();
+        const symbol = checker.getSymbolAtLocation(node.name);
+        if (symbol) {
+            const type = checker.getDeclaredTypeOfSymbol(symbol);
+            return type.symbol.declarations[0];
+        }
+    }
+    return node;
 }
 function generateMapForIntersectNodes(intersectNodeNames) {
     return typescript_1.default.createVariableStatement(undefined, typescript_1.default.createVariableDeclarationList([typescript_1.default.createVariableDeclaration(typescript_1.default.createIdentifier("objectStore"), undefined, typescript_1.default.createNew(typescript_1.default.createIdentifier("Map"), undefined, [typescript_1.default.createArrayLiteral(intersectNodeNames.map(name => typescript_1.default.createArrayLiteral([
@@ -103,7 +117,8 @@ function getDeclarationsFromTypeReferenceNode(node, program) {
 }
 exports.getDeclarationsFromTypeReferenceNode = getDeclarationsFromTypeReferenceNode;
 function typeReferenceHandler(node, program, objIdentifier) {
-    const declaration = getDeclarationsFromTypeReferenceNode(node, program);
+    let declaration = getDeclarationsFromTypeReferenceNode(node, program);
+    declaration = importSpecifierHandler(declaration, program);
     if (declaration) {
         if (typescript_1.default.isInterfaceDeclaration(declaration)) {
             return interfaceDeclarationHandler(declaration, program, objIdentifier);

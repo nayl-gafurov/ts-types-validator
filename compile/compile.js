@@ -7,7 +7,7 @@ const typescript_1 = __importDefault(require("typescript"));
 const transformer_1 = __importDefault(require("../transformer"));
 function compile(filePaths, target = typescript_1.default.ScriptTarget.ES5, writeFileCallback) {
     const program = typescript_1.default.createProgram(filePaths, {
-        strict: true,
+        strict: false,
         noEmitOnError: true,
         suppressImplicitAnyIndexErrors: true,
         esModuleInterop: true,
