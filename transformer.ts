@@ -441,11 +441,20 @@ function interfaceDeclarationHandler(node: ts.InterfaceDeclaration | ts.TypeLite
       interfaceList.set(node.name.getText(), func(ts.createIdentifier(argName)))
     }
 
+ 
     const condition = ts.createBinary(
       ts.createBinary(
-        ts.createTypeOf(withProps),
-        ts.createToken(ts.SyntaxKind.EqualsEqualsEqualsToken),
-        ts.createStringLiteral("object")
+        ts.createBinary(
+          ts.createTypeOf(withProps),
+          ts.createToken(ts.SyntaxKind.EqualsEqualsEqualsToken),
+          ts.createStringLiteral("object")
+        ),
+        ts.createToken(ts.SyntaxKind.AmpersandAmpersandToken),
+        ts.createBinary(
+          withProps,
+          ts.createToken(ts.SyntaxKind.ExclamationEqualsEqualsToken),
+          ts.createNull()
+        )
       ),
       ts.createToken(ts.SyntaxKind.AmpersandAmpersandToken),
       ts.createCall(
@@ -457,6 +466,7 @@ function interfaceDeclarationHandler(node: ts.InterfaceDeclaration | ts.TypeLite
         [withProps]
       )
     )
+    
 
     if (isIntersects && intersectNodes.some(item => item === node)) {
       return ts.createParen(ts.createBinary(
