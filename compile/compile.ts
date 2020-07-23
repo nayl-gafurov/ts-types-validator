@@ -1,7 +1,12 @@
 import ts from 'typescript';
 import transformer from '../transformer';
 
-export default function compile(filePaths: string[], target = ts.ScriptTarget.ES5, writeFileCallback?: ts.WriteFileCallback) {
+export default function compile(
+  filePaths: string[],
+  target = ts.ScriptTarget.ES5,
+  opt?: { browserEnv?: boolean, equateUndefinedAndNull?: boolean },
+  writeFileCallback?: ts.WriteFileCallback) {
+
   const program = ts.createProgram(filePaths, {
     strict: false,
     noEmitOnError: true,
@@ -10,7 +15,7 @@ export default function compile(filePaths: string[], target = ts.ScriptTarget.ES
     target
   });
   const transformers: ts.CustomTransformers = {
-    before: [transformer(program)],
+    before: [transformer(program, opt)],
     after: []
   };
   const { emitSkipped, diagnostics } = program.emit(undefined, writeFileCallback, undefined, false, transformers);

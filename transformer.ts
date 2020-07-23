@@ -1,13 +1,23 @@
 import ts from 'typescript';
-import { ChainManager } from "./utils/ChainManager";
+import { ChainManager } from "./utils/loopFinder/ChainManager";
+import { typeOf, equal, and, or, isArray, every, isTypeOfObject, isNull } from "./utils/operators/boolOperators"
+import { constVar, _if, not, consoleWarn, arrowFunc, call, propAccess, func, assignValue, identifier, str, letVar } from './utils/operators/operators';
 
 const interfaceList: Map<string, ts.ArrowFunction | undefined> = new Map();
 const dataObjName = "data";
 const argName = "arg";
 let intersectNodes: ts.InterfaceDeclaration[];
 let isIntersects: boolean = false;
+let browserEnv = false
+let equateUndefinedAndNull = false;
 
-export default function transformer(program: ts.Program): ts.TransformerFactory<ts.SourceFile> {
+export default function transformer(program: ts.Program, opt?: { browserEnv?: boolean, equateUndefinedAndNull?: boolean }): ts.TransformerFactory<ts.SourceFile> {
+
+  if (opt) {
+    browserEnv = opt.browserEnv ? opt.browserEnv : false;
+    equateUndefinedAndNull = opt.equateUndefinedAndNull ? opt.equateUndefinedAndNull : false;
+  }
+
   return (context: ts.TransformationContext) => (file: ts.SourceFile) => {
     return visitNode(file, program, context);
   };
@@ -40,13 +50,10 @@ function visiterForFunction(node: ts.Node, program: ts.Program): ts.Node | undef
         let propsName;
         const cm = new ChainManager(program);
 
-        
-
         if (ts.isTypeReferenceNode(type)) {
-
           let declaration = getDeclarationsFromTypeReferenceNode(type, program);
           declaration = importSpecifierHandler(declaration, program);
-          
+
           if (declaration) {
 
             if (ts.isInterfaceDeclaration(declaration)) {
@@ -72,7 +79,7 @@ function visiterForFunction(node: ts.Node, program: ts.Program): ts.Node | undef
 
         if (expression && propsName) {
 
-          const arr = [
+          const arrOfPropsAssignment = [
             ts.createPropertyAssignment(
               ts.createIdentifier(propsName),
               expression
@@ -81,7 +88,7 @@ function visiterForFunction(node: ts.Node, program: ts.Program): ts.Node | undef
 
           interfaceList.forEach((data, name) => {
             if (data) {
-              arr.push(
+              arrOfPropsAssignment.push(
                 ts.createPropertyAssignment(
                   ts.createIdentifier(name),
                   data
@@ -100,48 +107,11 @@ function visiterForFunction(node: ts.Node, program: ts.Program): ts.Node | undef
           }
 
           block.push(
-            ts.createVariableStatement(
-              undefined,
-              ts.createVariableDeclarationList(
-                [ts.createVariableDeclaration(
-                  ts.createIdentifier(dataObjName),
-                  undefined,
-                  ts.createObjectLiteral(
-                    arr,
-                    true
-                  )
-                )],
-                ts.NodeFlags.Const
-              )
-            ),
-            ts.createReturn(ts.createCall(
-              ts.createPropertyAccess(
-                ts.createIdentifier(dataObjName),
-                ts.createIdentifier(propsName)
-              ),
-              undefined,
-              [ts.createIdentifier(typeParamName)]
-            ))
+            constVar(dataObjName, ts.createObjectLiteral(arrOfPropsAssignment, true)),
+            ts.createReturn(call(propAccess(dataObjName, propsName), [ts.createIdentifier(typeParamName)]))
           )
 
-          return ts.createFunctionDeclaration(
-            undefined,
-            exportModifier ? [ts.createModifier(ts.SyntaxKind.ExportKeyword)] : undefined,
-            undefined,
-            ts.createIdentifier(name),
-            undefined,
-            [ts.createParameter(
-              undefined,
-              undefined,
-              undefined,
-              ts.createIdentifier(typeParamName),
-              undefined,
-              ts.createKeywordTypeNode(ts.SyntaxKind.ObjectKeyword),
-              undefined
-            )],
-            undefined,
-            ts.createBlock(block, true)
-          )
+          return func(name, block, typeParamName, exportModifier)
         }
       }
     }
@@ -149,7 +119,7 @@ function visiterForFunction(node: ts.Node, program: ts.Program): ts.Node | undef
   return;
 }
 
-function importSpecifierHandler(node: ts.Declaration | undefined, program: ts.Program): ts.Declaration | undefined {
+export function importSpecifierHandler(node: ts.Declaration | undefined, program: ts.Program): ts.Declaration | undefined {
   if (node && ts.isImportSpecifier(node)) {
     const checker = program.getTypeChecker();
     const symbol = checker.getSymbolAtLocation(node.name)
@@ -194,108 +164,26 @@ function generateMapForIntersectNodes(intersectNodeNames: string[]) {
 }
 
 function getFunctionForIsIntersectObject() {
-  return ts.createVariableStatement(
-    undefined,
-    ts.createVariableDeclarationList(
-      [ts.createVariableDeclaration(
-        ts.createIdentifier("isIntersectObject"),
-        undefined,
-        ts.createArrowFunction(
-          undefined,
-          undefined,
+
+  return constVar("isIntersectObject", arrowFunc([
+
+    _if(
+      call(propAccess("objectStore", "has"), ts.createIdentifier("interfaceName")),
+      [
+        constVar("objects", call(propAccess("objectStore", "get"), ts.createIdentifier("interfaceName"))),
+        _if(
+          call(propAccess("objects", "has"), ts.createIdentifier("obj")),
+          [ts.createReturn(ts.createTrue())],
           [
-            ts.createParameter(
-              undefined,
-              undefined,
-              undefined,
-              ts.createIdentifier("interfaceName"),
-              undefined,
-              undefined,
-              undefined
-            ),
-            ts.createParameter(
-              undefined,
-              undefined,
-              undefined,
-              ts.createIdentifier("obj"),
-              undefined,
-              undefined,
-              undefined
-            )
-          ],
-          undefined,
-          ts.createToken(ts.SyntaxKind.EqualsGreaterThanToken),
-          ts.createBlock(
-            [ts.createIf(
-              ts.createCall(
-                ts.createPropertyAccess(
-                  ts.createIdentifier("objectStore"),
-                  ts.createIdentifier("has")
-                ),
-                undefined,
-                [ts.createIdentifier("interfaceName")]
-              )
-              ,
-              ts.createBlock(
-                [
-                  ts.createVariableStatement(
-                    undefined,
-                    ts.createVariableDeclarationList(
-                      [ts.createVariableDeclaration(
-                        ts.createIdentifier("objects"),
-                        undefined,
-                        ts.createCall(
-                          ts.createPropertyAccess(
-                            ts.createIdentifier("objectStore"),
-                            ts.createIdentifier("get")
-                          ),
-                          undefined,
-                          [ts.createIdentifier("interfaceName")]
-                        )
-                      )],
-                      ts.NodeFlags.Const
-                    )
-                  ),
-                  ts.createIf(
-                    ts.createCall(
-                      ts.createPropertyAccess(
-                        ts.createIdentifier("objects"),
-                        ts.createIdentifier("has")
-                      ),
-                      undefined,
-                      [ts.createIdentifier("obj")]
-                    ),
-                    ts.createBlock(
-                      [ts.createReturn(ts.createTrue())],
-                      true
-                    ),
-                    ts.createBlock(
-                      [
-                        ts.createExpressionStatement(ts.createCall(
-                          ts.createPropertyAccess(
-                            ts.createIdentifier("objects"),
-                            ts.createIdentifier("add")
-                          ),
-                          undefined,
-                          [ts.createIdentifier("obj")]
-                        )),
-                        ts.createReturn(ts.createFalse())
-                      ],
-                      true
-                    )
-                  )
-                ],
-                true
-              ),
-              undefined
-            )],
-            true
-          )
+            ts.createExpressionStatement(
+              call(propAccess("objects", "add"), ts.createIdentifier("obj")),
+            ), ts.createReturn(ts.createFalse())
+          ]
         )
-      )],
-      ts.NodeFlags.Const
+      ],
     )
-  )
+
+  ], ["interfaceName", "obj"]))
 
 }
 
@@ -355,132 +243,49 @@ function interfaceDeclarationHandler(node: ts.InterfaceDeclaration | ts.TypeLite
     return props
   }
 
-  const call = (objPropsAccess: ts.Identifier | ts.PropertyAccessExpression) => ts.createCall(
-    ts.createPropertyAccess(
-      ts.createArrayLiteral(getProps(objPropsAccess), true),
-      ts.createIdentifier("every")
-    ),
-    undefined,
-    [ts.createArrowFunction(
-      undefined,
-      undefined,
-      [ts.createParameter(
-        undefined,
-        undefined,
-        undefined,
-        ts.createIdentifier("item"),
-        undefined,
-        undefined,
-        undefined
-      )],
-      undefined,
-      ts.createToken(ts.SyntaxKind.EqualsGreaterThanToken),
-      ts.createCall(
-        ts.createIdentifier("item"),
-        undefined,
-        []
-      )
-    )]
-  )
 
-  const bloc = (objPropsAccess: ts.Identifier | ts.PropertyAccessExpression) => {
+  const callFunction = (objPropsAccess: ts.Identifier | ts.PropertyAccessExpression) =>
+    every(ts.createArrayLiteral(getProps(objPropsAccess)), call("item"))
+
+
+  const body = (objPropsAccess: ts.Identifier | ts.PropertyAccessExpression) => {
     if (isIntersects && ts.isInterfaceDeclaration(node)) {
       if (intersectNodes.some(item => item === node)) {
         return [
           ts.createExpressionStatement(
-            ts.createCall(
-              ts.createIdentifier("isIntersectObject"),
-              undefined,
-              [
-                ts.createStringLiteral(node.name.getText()),
-                ts.createIdentifier(argName)
-              ]
-            )
+            call("isIntersectObject", [node.name.getText(), ts.createIdentifier(argName)])
           )
           ,
-          ts.createReturn(
-            call(objPropsAccess)
-          )
+          ts.createReturn(callFunction(objPropsAccess))
         ]
       }
     }
-    return [
-      ts.createReturn(
-        call(objPropsAccess)
-      )
-    ]
+
+    return [ts.createReturn(callFunction(objPropsAccess))]
   }
 
-  const func = (objPropsAccess: ts.Identifier | ts.PropertyAccessExpression) => ts.createArrowFunction(
-    undefined,
-    undefined,
-    [ts.createParameter(
-      undefined,
-      undefined,
-      undefined,
-      ts.createIdentifier("arg"),
-      undefined,
-      undefined,
-      undefined
-    )],
-    undefined,
-    ts.createToken(ts.SyntaxKind.EqualsGreaterThanToken),
-    ts.createBlock(bloc(objPropsAccess), false)
-  )
+  const arrowFunction = (objPropsAccess: ts.Identifier | ts.PropertyAccessExpression) => arrowFunc(body(objPropsAccess), "arg")
+
 
   if (ts.isTypeLiteralNode(node)) {
-    return call(withProps as ts.Identifier | ts.PropertyAccessExpression)
+    return callFunction(withProps as ts.Identifier | ts.PropertyAccessExpression)
   }
 
   if (typeof withProps === "boolean" && withProps) {
     interfaceList.set(node.name.getText(), undefined)
-    return func(ts.createIdentifier(argName))
+    return arrowFunction(ts.createIdentifier(argName))
   } else {
     if (!interfaceList.has(node.name.getText())) {
       interfaceList.set(node.name.getText(), undefined)
-      interfaceList.set(node.name.getText(), func(ts.createIdentifier(argName)))
+      interfaceList.set(node.name.getText(), arrowFunction(ts.createIdentifier(argName)))
     }
 
- 
-    const condition = ts.createBinary(
-      ts.createBinary(
-        ts.createBinary(
-          ts.createTypeOf(withProps),
-          ts.createToken(ts.SyntaxKind.EqualsEqualsEqualsToken),
-          ts.createStringLiteral("object")
-        ),
-        ts.createToken(ts.SyntaxKind.AmpersandAmpersandToken),
-        ts.createBinary(
-          withProps,
-          ts.createToken(ts.SyntaxKind.ExclamationEqualsEqualsToken),
-          ts.createNull()
-        )
-      ),
-      ts.createToken(ts.SyntaxKind.AmpersandAmpersandToken),
-      ts.createCall(
-        ts.createPropertyAccess(
-          ts.createIdentifier(dataObjName),
-          ts.createIdentifier(node.name.getText())
-        ),
-        undefined,
-        [withProps]
-      )
-    )
-    
+    const condition = and(isTypeOfObject(withProps), call(propAccess(dataObjName, node.name.getText()), withProps));
 
     if (isIntersects && intersectNodes.some(item => item === node)) {
-      return ts.createParen(ts.createBinary(
-        ts.createCall(
-          ts.createIdentifier("isIntersectObject"),
-          undefined,
-          [
-            ts.createStringLiteral(node.name.getText()),
-            withProps
-          ]
-        ),
-        ts.createToken(ts.SyntaxKind.BarBarToken),
-        condition
-      ))
+      return ts.createParen(
+        or(call("isIntersectObject", [node.name.getText(), withProps]), condition)
+      )
     } else {
       return condition
     }
@@ -495,8 +300,8 @@ function propertySignatureHandler(node: ts.PropertySignature | ts.ParameterDecla
       objIdentifier,
       ts.createIdentifier(node.name.getText())
     )
-    const expression = typeHandler(nodeType, program, access);
 
+    const expression = typeHandler(nodeType, program, access);
 
     const getFullAccessName = (access: ts.PropertyAccessExpression, result: string = ""): string => {
       if (result.length > 0) {
@@ -510,87 +315,52 @@ function propertySignatureHandler(node: ts.PropertySignature | ts.ParameterDecla
       return result
     }
 
-    const result = () => {
-      const insideBinary = ts.createBinary(
-        ts.createBinary(
-          ts.createStringLiteral(access.name.text),
-          ts.createToken(ts.SyntaxKind.InKeyword),
-          access.expression
-        ),
-        ts.createToken(ts.SyntaxKind.AmpersandAmpersandToken),
-        expression
-      )
+    const resultVariable = () => {
       if (node.questionToken) {
-        return ts.createVariableStatement(
-          undefined,
-          ts.createVariableDeclarationList(
-            [ts.createVariableDeclaration(
-              ts.createIdentifier("result"),
-              undefined,
-              ts.createBinary(
-                ts.createBinary(
-                  ts.createTypeOf(access),
-                  ts.createToken(ts.SyntaxKind.EqualsEqualsEqualsToken),
-                  ts.createStringLiteral("undefined")
-                ),
-                ts.createToken(ts.SyntaxKind.BarBarToken),
-                insideBinary
-              )
-            )],
-            ts.NodeFlags.None
-          )
-        )
+        if (equateUndefinedAndNull) {
+          return constVar("result", or(typeOf(access, "undefined"), or(isNull(access), expression)))
+        }
+        return constVar("result", or(typeOf(access, "undefined"), expression))
       } else {
-        return ts.createVariableStatement(
-          undefined,
-          ts.createVariableDeclarationList(
-            [ts.createVariableDeclaration(
-              ts.createIdentifier("result"),
-              undefined,
-              insideBinary
-            )],
-            ts.NodeFlags.Const
-          )
-        )
+        return constVar("result", expression)
       }
     }
 
-    const block = [
-      result()
-      ,
-      ts.createIf(
-        ts.createPrefix(
-          ts.SyntaxKind.ExclamationToken,
-          ts.createIdentifier("result")
-        ),
-        ts.createBlock(
-          [ts.createExpressionStatement(ts.createCall(
-            ts.createPropertyAccess(
-              ts.createIdentifier("console"),
-              ts.createIdentifier("warn")
-            ),
-            undefined,
-            [
-              ts.createStringLiteral("\x1b[33m" + getFullAccessName(access)),
-              ts.createStringLiteral("\x1b[36m MUST be type of: "),
-              ts.createStringLiteral("\x1b[33m" + nodeType.getText() + "\x1b[39m"),
-            ]
-          ))],
-          true
-        ),
-        undefined
+
+    const indexIdentifier= ts.createTemplateExpression(
+      ts.createTemplateHead(
+        "[",
+        "["
       ),
+      [ts.createTemplateSpan(
+        ts.createIdentifier("arrayIndex"),
+        ts.createTemplateTail(
+          "]",
+          "]"
+        )
+      )]
+    )
+
+    const block = [
+      resultVariable(),
+      _if(not("result"), consoleWarn(
+
+        browserEnv ? [str(getFullAccessName(access)), isArrayReferenceNode(nodeType) ? indexIdentifier : str(""), str(`MUST be type of: ${nodeType.getText()}`)] :
+          [str("\x1b[33m" + getFullAccessName(access)),
+          isArrayReferenceNode(nodeType) ? indexIdentifier : str(""),
+          str("\x1b[36m MUST be type of: "),
+          str("\x1b[33m" + nodeType.getText() + "\x1b[39m"),
+          ]
+
+      )),
       ts.createReturn(ts.createIdentifier("result"))
     ];
 
-    return ts.createArrowFunction(
-      undefined,
-      undefined,
-      [],
-      undefined,
-      ts.createToken(ts.SyntaxKind.EqualsGreaterThanToken),
-      ts.createBlock(block, true)
-    );
+    if (isArrayReferenceNode(nodeType)) {
+      block.unshift(letVar("arrayIndex"))
+    }
+
+    return arrowFunc(block);
   } else {
     return
   }
@@ -598,42 +368,11 @@ function propertySignatureHandler(node: ts.PropertySignature | ts.ParameterDecla
 
 function arrayReferenceNodeHandler(node: ts.TypeReferenceNode, program: ts.Program, objIdentifier: ts.PropertyAccessExpression | ts.Identifier) {
   const args = node.typeArguments as ts.NodeArray<ts.TypeNode>
-
-  return ts.createBinary(
-    ts.createCall(
-      ts.createPropertyAccess(
-        ts.createIdentifier("Array"),
-        ts.createIdentifier("isArray")
-      ),
-      undefined,
-      [objIdentifier]
-    ),
-    ts.createToken(ts.SyntaxKind.AmpersandAmpersandToken),
-    ts.createCall(
-      ts.createPropertyAccess(
-        objIdentifier,
-        ts.createIdentifier("every")
-      ),
-      undefined,
-      [
-        ts.createArrowFunction(
-          undefined,
-          undefined,
-          [ts.createParameter(
-            undefined,
-            undefined,
-            undefined,
-            ts.createIdentifier("item"),
-            undefined,
-            undefined,
-            undefined
-          )],
-          undefined,
-          ts.createToken(ts.SyntaxKind.EqualsGreaterThanToken),
-          typeHandler(args[0], program, ts.createIdentifier("item"))
-        )
-      ]
-    ))
+  const resultCondition = constVar("condition", typeHandler(args[0], program, ts.createIdentifier("item")));
+  const condition = _if(not(identifier("condition")), ts.createExpressionStatement(assignValue("arrayIndex", "index")));
+  const returnState = ts.createReturn(identifier("condition"));
+  const func = arrowFunc([resultCondition, condition, returnState], ["item", "index"])
+  return and(isArray(objIdentifier), every(objIdentifier, func, { index: true }))
 }
 
 function typeHandler(node: ts.TypeNode, program: ts.Program, objPropsAccess: ts.PropertyAccessExpression | ts.Identifier): ts.Expression {
@@ -652,80 +391,66 @@ function typeHandler(node: ts.TypeNode, program: ts.Program, objPropsAccess: ts.
     return literalTypeHandler(node, program, objPropsAccess);
   } else if (ts.isFunctionTypeNode(node)) {
     return functionTypeHandler(node, objPropsAccess);
+  } else if (ts.SyntaxKind[node.kind] === "NullKeyword") {
+    return nullKeywordHandler(objPropsAccess);
+  } else if (ts.SyntaxKind[node.kind] === "UndefinedKeyword") {
+    return undefinedKeywordHandler(objPropsAccess);
   } else {
-    return simpleTypeHandler(node, objPropsAccess);
+    return otherTypeHandler(node, objPropsAccess);
   }
 }
 
-function simpleTypeHandler(node: ts.TypeNode, objPropsAccess: ts.PropertyAccessExpression | ts.Identifier) {
-  return ts.createBinary(
-    ts.createTypeOf(objPropsAccess),
-    ts.createToken(ts.SyntaxKind.EqualsEqualsEqualsToken),
-    ts.createStringLiteral(node.getText())
-  )
+function isArrayReferenceNode(node: ts.TypeNode) {
+  return ts.isTypeReferenceNode(node) && node.typeName.getText() === "Array" && node.typeArguments
+}
+
+function undefinedKeywordHandler(objPropsAccess: ts.PropertyAccessExpression | ts.Identifier) {
+  if (equateUndefinedAndNull) {
+    return or(typeOf(objPropsAccess, "undefined"), isNull(objPropsAccess))
+  }
+  return typeOf(objPropsAccess, "undefined")
+}
+
+function nullKeywordHandler(objPropsAccess: ts.PropertyAccessExpression | ts.Identifier) {
+  return isNull(objPropsAccess)
+}
+
+function otherTypeHandler(node: ts.TypeNode, objPropsAccess: ts.PropertyAccessExpression | ts.Identifier) {
+  return typeOf(objPropsAccess, node.getText())
 }
 
 function functionTypeHandler(node: ts.FunctionTypeNode, objPropsAccess: ts.PropertyAccessExpression | ts.Identifier) {
-  return ts.createBinary(
-    ts.createTypeOf(objPropsAccess),
-    ts.createToken(ts.SyntaxKind.EqualsEqualsEqualsToken),
-    ts.createStringLiteral("function")
-  )
+  return typeOf(objPropsAccess, "function")
 }
 
 function literalTypeHandler(node: ts.LiteralTypeNode, program: ts.Program, objPropsAccess: ts.PropertyAccessExpression | ts.Identifier) {
   if (ts.isLiteralExpression(node.literal)) {
-    ts.isNumericLiteral(node.literal)
-    return ts.createBinary(
-      objPropsAccess,
-      ts.createToken(ts.SyntaxKind.EqualsEqualsEqualsToken),
-      ts.isNumericLiteral(node.literal) ? ts.createNumericLiteral(node.literal.text) : ts.createStringLiteral(node.literal.text)
-    )
+    return equal(objPropsAccess, ts.isNumericLiteral(node.literal) ? ts.createNumericLiteral(node.literal.text) : ts.createStringLiteral(node.literal.text))
   } else {
-    return ts.createBinary(
-      objPropsAccess,
-      ts.createToken(ts.SyntaxKind.EqualsEqualsEqualsToken),
-      ts.createIdentifier(node.literal.getText())
-    )
+    return equal(objPropsAccess, node.literal)
   }
 }
 
-function unionTypeHandler(node: ts.UnionTypeNode | Array<ts.TypeNode>, program: ts.Program, objPropsAccess: ts.PropertyAccessExpression | ts.Identifier): ts.Expression {
-  let types;
-  let lastType;
-
-  if (Array.isArray(node)) {
-    types = node;
-    lastType = node.pop() as ts.TypeNode
-  } else {
-    types = node.types.concat();
-    lastType = types.pop() as ts.TypeNode
+function unionTypeHandler(node: ts.UnionTypeNode, program: ts.Program, objPropsAccess: ts.PropertyAccessExpression | ts.Identifier): ts.Expression {
+  const binaryBuilder = (array: Array<ts.TypeNode>): ts.BinaryExpression => {
+    const lastType = array.pop() as ts.TypeNode
+    return or(
+      array.length > 1 ? binaryBuilder(array) : typeHandler(array[0], program, objPropsAccess),
+      typeHandler(lastType, program, objPropsAccess)
+    )
   }
-  return ts.createBinary(
-    types.length > 1 ? unionTypeHandler(types, program, objPropsAccess) :
-      typeHandler(types[0], program, objPropsAccess),
-    ts.createToken(ts.SyntaxKind.BarBarToken),
-    typeHandler(lastType, program, objPropsAccess)
-  )
+  return binaryBuilder(node.types.concat())
 }
 
-function intersectionTypeHandler(node: ts.IntersectionTypeNode | Array<ts.TypeNode>, program: ts.Program, objPropsAccess: ts.PropertyAccessExpression | ts.Identifier): ts.Expression {
-  let types;
-  let lastType;
-
-  if (Array.isArray(node)) {
-    types = node;
-    lastType = node.pop() as ts.TypeNode
-  } else {
-    types = node.types.concat();
-    lastType = types.pop() as ts.TypeNode
+function intersectionTypeHandler(node: ts.IntersectionTypeNode, program: ts.Program, objPropsAccess: ts.PropertyAccessExpression | ts.Identifier): ts.Expression {
+  const binaryBuilder = (array: Array<ts.TypeNode>): ts.BinaryExpression => {
+    const lastType = array.pop() as ts.TypeNode
+    return and(
+      array.length > 1 ? binaryBuilder(array) : typeHandler(array[0], program, objPropsAccess),
+      typeHandler(lastType, program, objPropsAccess)
+    )
   }
-  return ts.createBinary(
-    types.length > 1 ? intersectionTypeHandler(types, program, objPropsAccess) :
-      typeHandler(types[0], program, objPropsAccess),
-    ts.createToken(ts.SyntaxKind.AmpersandAmpersandToken),
-    typeHandler(lastType, program, objPropsAccess)
-  )
+  return binaryBuilder(node.types.concat())
 }
 
 function typeAliasDeclarationHandler(node: ts.TypeAliasDeclaration, program: ts.Program, objPropsAccess: ts.PropertyAccessExpression | ts.Identifier) {

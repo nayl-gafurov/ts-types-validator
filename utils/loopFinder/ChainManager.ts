@@ -1,6 +1,6 @@
 import ts from 'typescript';
 import { Chain } from "./Chain"
-import { getDeclarationsFromTypeReferenceNode } from '../transformer';
+import { getDeclarationsFromTypeReferenceNode, importSpecifierHandler } from '../../functionTransformer';
 
 export class ChainManager {
 
@@ -23,32 +23,32 @@ export class ChainManager {
     }
   }
 
-
   private findChains(chain: Chain) {
     const node = chain.getTail();
     const nextNodes: Array<ts.InterfaceDeclaration> = [];
 
-    const action=(node: ts.Node)=>{
+    const action = (node: ts.Node) => {
       if (ts.isTypeReferenceNode(node)) {
         if (node.getText() == "Array" && node.typeArguments) {
-          const arg =node.typeArguments[0];
+          const arg = node.typeArguments[0];
           action(arg)
         } else {
-          const declaration = getDeclarationsFromTypeReferenceNode(node, this.program)
-          if (declaration ) {
+          let declaration = getDeclarationsFromTypeReferenceNode(node, this.program)
+          declaration = importSpecifierHandler(declaration, this.program);
+          if (declaration) {
             action(declaration)
           }
         }
       }
       if (ts.isTypeLiteralNode(node)) {
         trace(node)
-      }else if (ts.isInterfaceDeclaration(node)) {
+      } else if (ts.isInterfaceDeclaration(node)) {
         nextNodes.push(node);
-      }else if(ts.isUnionTypeNode(node) || ts.isIntersectionTypeNode(node)){
-        node.types.forEach(type=>action(type))
+      } else if (ts.isUnionTypeNode(node) || ts.isIntersectionTypeNode(node)) {
+        node.types.forEach(type => action(type))
       }
     }
-   
+
     const trace = (node: ts.InterfaceDeclaration | ts.TypeLiteralNode) => (node.members).forEach((propertySignature) => {
       if (ts.isPropertySignature(propertySignature)) {
         if (propertySignature.type) {

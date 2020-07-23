@@ -65,9 +65,11 @@ fooObj.obj.int = bazObj;
 
 console.log(isFoo(fooObj));
 ```
+
 ```sh
 node compile.js
 ```
+
 Compiled result :
 
 ```ts

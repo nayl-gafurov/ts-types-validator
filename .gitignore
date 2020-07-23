@@ -1,6 +1,4 @@
 *.js
 !/index.js
-!/transformer.js
-!compile/compile.js
 npm-debug.log*
 node_modules
