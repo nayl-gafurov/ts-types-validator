@@ -1,6 +1,6 @@
 import ts from 'typescript';
 import { Chain } from "./Chain"
-import { getDeclarationsFromTypeReferenceNode, importSpecifierHandler } from '../../functionTransformer';
+import { getDeclarationsFromTypeReferenceNode, importSpecifierHandler } from '../../transformer';
 
 export class ChainManager {
 
