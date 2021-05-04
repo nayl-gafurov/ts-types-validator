@@ -1,21 +1,20 @@
-import ts from 'typescript';
-import { Chain } from "./Chain"
-import { getDeclarationsFromTypeReferenceNode, importSpecifierHandler } from '../../transformer';
+import ts from "typescript";
+import { Chain } from "./Chain";
+import { getDeclarationsFromTypeReferenceNode, importSpecifierHandler } from "../../transformer";
 
 export class ChainManager {
-
   private readonly chainList: Chain[];
-  private program: ts.Program
+  private program: ts.Program;
 
   constructor(program: ts.Program, node?: ts.InterfaceDeclaration | ts.TypeLiteralNode) {
     this.program = program;
-    this.chainList = []
+    this.chainList = [];
     if (node) {
       this.init(node);
     }
   }
 
-  init(node: ts.InterfaceDeclaration | ts.TypeLiteralNode) {
+  init(node: ts.InterfaceDeclaration | ts.TypeLiteralNode): void {
     if (ts.isInterfaceDeclaration(node)) {
       const newChain = new Chain(node);
       this.chainList.push(newChain);
@@ -31,34 +30,34 @@ export class ChainManager {
       if (ts.isTypeReferenceNode(node)) {
         if (node.getText() == "Array" && node.typeArguments) {
           const arg = node.typeArguments[0];
-          action(arg)
+          action(arg);
         } else {
-          let declaration = getDeclarationsFromTypeReferenceNode(node, this.program)
+          let declaration = getDeclarationsFromTypeReferenceNode(node, this.program);
           declaration = importSpecifierHandler(declaration, this.program);
           if (declaration) {
-            action(declaration)
+            action(declaration);
           }
         }
       }
       if (ts.isTypeLiteralNode(node)) {
-        trace(node)
+        trace(node);
       } else if (ts.isInterfaceDeclaration(node)) {
         nextNodes.push(node);
       } else if (ts.isUnionTypeNode(node) || ts.isIntersectionTypeNode(node)) {
-        node.types.forEach(type => action(type))
+        node.types.forEach((type) => action(type));
       }
-    }
+    };
 
-    const trace = (node: ts.InterfaceDeclaration | ts.TypeLiteralNode) => (node.members).forEach((propertySignature) => {
-      if (ts.isPropertySignature(propertySignature)) {
-        if (propertySignature.type) {
-          const typeNode = propertySignature.type
-          action(propertySignature.type);
+    const trace = (node: ts.InterfaceDeclaration | ts.TypeLiteralNode) =>
+      node.members.forEach((propertySignature) => {
+        if (ts.isPropertySignature(propertySignature)) {
+          if (propertySignature.type) {
+            action(propertySignature.type);
+          }
         }
-      }
-    });
+      });
 
-    trace(node)
+    trace(node);
     if (nextNodes.length > 0) {
       if (nextNodes.length > 1) {
         for (let i = 1; i < nextNodes.length; i++) {
@@ -76,16 +75,19 @@ export class ChainManager {
     }
   }
 
-  get chains() {
+  get chains(): Chain[] {
     return [...this.chainList];
   }
 
-  get intersectChains() {
+  get intersectChains(): Chain[] {
     return [...this.chainList].filter((chain) => chain.isIntersectChain());
   }
 
   get intersectNodes(): Array<ts.InterfaceDeclaration> {
-    return this.intersectChains.map((loopedChain) => loopedChain.getIntersectNode()).
-      filter((value, index, self) => self.indexOf(value) === index) as Array<ts.InterfaceDeclaration>
+    return this.intersectChains
+      .map((loopedChain) => loopedChain.getIntersectNode())
+      .filter(
+        (value, index, self) => self.indexOf(value) === index,
+      ) as Array<ts.InterfaceDeclaration>;
   }
 }

@@ -1,1 +1,1 @@
-module.exports =  typeChecker = require("./compile/compile").default
+module.exports = typeChecker = require("./compile/compile").default;

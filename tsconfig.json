@@ -8,11 +8,6 @@
     "noFallthroughCasesInSwitch": true,
     "esModuleInterop": true
   },
-  "include": [
-    "transformer.ts",
-    "compile/compile.ts"
-  ],
-  "exclude": [
-    "node_modules"
-  ]
+  "include": ["transformer.ts", "compile/compile.ts"],
+  "exclude": ["node_modules"]
 }
