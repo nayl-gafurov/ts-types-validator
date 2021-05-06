@@ -4,7 +4,7 @@ ts-types-validator is a TypeScript custom transformer that, based on the TypeScr
 
 ## Environment
 
--Required `TypeScript v2.4.1` or more
+- Required `TypeScript v2.4.1` or more
 
 ## Install
 
@@ -16,7 +16,7 @@ npm i ts-types-validator --dev
 
 ```ts
 //compile.js
-const typesValidator = require("ts-types-validator");
+const typesValidator = require("ts-types-validator").default;
 typesValidator(["./index.ts"]);
 ```
 
