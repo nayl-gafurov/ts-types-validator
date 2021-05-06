@@ -1,5 +1,6 @@
-*.js
-!/index.js
-npm-debug.log*
-node_modules
+*.log
 .DS_Store
+node_modules
+dist
+yarn.lock
+coverage

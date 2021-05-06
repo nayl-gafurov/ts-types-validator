@@ -1,6 +1,6 @@
-import ts from "typescript";
-import { Chain } from "./Chain";
-import { getDeclarationsFromTypeReferenceNode, importSpecifierHandler } from "../../transformer";
+import ts from 'typescript';
+import { Chain } from './Chain';
+import { getDeclarationsFromTypeReferenceNode, importSpecifierHandler } from '../utils';
 
 export class ChainManager {
   private readonly chainList: Chain[];
@@ -22,13 +22,13 @@ export class ChainManager {
     }
   }
 
-  private findChains(chain: Chain) {
+  private findChains(chain: Chain): void {
     const node = chain.getTail();
     const nextNodes: Array<ts.InterfaceDeclaration> = [];
 
-    const action = (node: ts.Node) => {
+    const action = (node: ts.Node): void => {
       if (ts.isTypeReferenceNode(node)) {
-        if (node.getText() == "Array" && node.typeArguments) {
+        if (node.getText() === 'Array' && node.typeArguments) {
           const arg = node.typeArguments[0];
           action(arg);
         } else {
@@ -44,12 +44,12 @@ export class ChainManager {
       } else if (ts.isInterfaceDeclaration(node)) {
         nextNodes.push(node);
       } else if (ts.isUnionTypeNode(node) || ts.isIntersectionTypeNode(node)) {
-        node.types.forEach((type) => action(type));
+        node.types.forEach(type => action(type));
       }
     };
 
-    const trace = (node: ts.InterfaceDeclaration | ts.TypeLiteralNode) =>
-      node.members.forEach((propertySignature) => {
+    const trace = (node: ts.InterfaceDeclaration | ts.TypeLiteralNode): void =>
+      node.members.forEach(propertySignature => {
         if (ts.isPropertySignature(propertySignature)) {
           if (propertySignature.type) {
             action(propertySignature.type);
@@ -80,14 +80,12 @@ export class ChainManager {
   }
 
   get intersectChains(): Chain[] {
-    return [...this.chainList].filter((chain) => chain.isIntersectChain());
+    return [...this.chainList].filter(chain => chain.isIntersectChain());
   }
 
   get intersectNodes(): Array<ts.InterfaceDeclaration> {
     return this.intersectChains
-      .map((loopedChain) => loopedChain.getIntersectNode())
-      .filter(
-        (value, index, self) => self.indexOf(value) === index,
-      ) as Array<ts.InterfaceDeclaration>;
+      .map(loopedChain => loopedChain.getIntersectNode())
+      .filter((value, index, self) => self.indexOf(value) === index) as Array<ts.InterfaceDeclaration>;
   }
 }

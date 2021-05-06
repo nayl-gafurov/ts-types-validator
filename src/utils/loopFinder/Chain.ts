@@ -1,4 +1,4 @@
-import ts, { InterfaceDeclaration } from "typescript";
+import ts, { InterfaceDeclaration } from 'typescript';
 
 export class Chain {
   private nodes: Set<ts.InterfaceDeclaration>;
@@ -7,7 +7,7 @@ export class Chain {
 
   constructor(node: ts.InterfaceDeclaration | Array<ts.InterfaceDeclaration>) {
     this.nodes = new Set();
-    Array.isArray(node) ? node.forEach((item) => this.add(item)) : this.add(node);
+    Array.isArray(node) ? node.forEach(item => this.add(item)) : this.add(node);
     this.isIntersect = false;
   }
 
@@ -43,6 +43,6 @@ export class Chain {
     return this.intersectNode;
   }
   getNodeNames(): string[] {
-    return this.getNodes().map((node) => node.name.getText());
+    return this.getNodes().map(node => node.name.getText());
   }
 }
