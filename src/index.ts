@@ -1,5 +1,6 @@
 import ts from 'typescript';
 import transformer from './transformer';
+export  {transformer}
 
 export default function compile(
   filePaths: string[],
@@ -24,3 +25,5 @@ export default function compile(
     throw new Error(diagnostics.map(diagnostic => diagnostic.messageText).join('\n'));
   }
 }
+
+

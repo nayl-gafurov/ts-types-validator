@@ -14,6 +14,10 @@ npm i ts-types-validator --dev
 
 ## Usage
 
+### Standalone
+
+See [examples/standalone](https://github.com/nayl-gafurov/ts-types-validator/tree/master/examples/standalone) for details.
+
 ```ts
 //compile.js
 const typesValidator = require("ts-types-validator").default;
@@ -33,7 +37,8 @@ interface Foo {
 
 export declare function isFoo(obj: { [k: string]: any }): obj is Foo
 
-console.log(isFoo(someObj));
+...
+
 ```
 
 ```sh
@@ -52,4 +57,62 @@ function isFoo(obj) {
 }
 exports.isFoo = isFoo;
 
+```
+
+### Rollup
+
+See [examples/rollup](https://github.com/nayl-gafurov/ts-types-validator/tree/master/examples/rollup) for details.
+
+```js
+rollup.config.js
+import resolve from 'rollup-plugin-node-resolve';
+import typescript from 'rollup-plugin-typescript2';
+import {transformer} from 'ts-types-validator';
+
+export default {
+  // ...
+  plugins: [
+    resolve(),
+    typescript({ transformers: [service => ({
+      before: [ keysTransformer(service.getProgram()) ],
+      after: []
+    })] })
+  ]
+};
+```
+
+### Webpack
+
+See [examples/webpack](https://github.com/nayl-gafurov/ts-types-validator/tree/master/examples/webpack) for details.
+
+```js
+const transformer = require('ts-types-validator').transformer;
+
+module.exports =
+{
+  mode: 'development',
+  entry: './index.ts',
+  output: {
+    filename: `bundle.js`,
+    path: __dirname
+  },
+  resolve: {
+    extensions: ['.ts', '.js']
+  },
+  module: {
+    rules: [
+      {
+        test: /\.ts$/,
+        loader: "ts-loader",
+        options: {
+          getCustomTransformers: program => ({
+            before: [
+              transformer(program)
+            ]
+          })
+        }
+      }
+    ]
+  }
+};
 ```

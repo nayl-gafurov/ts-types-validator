@@ -1,0 +1,9 @@
+{
+  "scripts": {
+    "start": "node compile"
+  },
+  "devDependencies": {
+    "ts-types-validator": "file:../../../ts-types-validator-1.1.4.tgz",
+    "typescript": "^4.2.4"
+  }
+}

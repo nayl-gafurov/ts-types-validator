@@ -1,0 +1,12 @@
+{
+  "scripts": {
+    "start": "webpack"
+  },
+  "devDependencies": {
+    "ts-loader": "^6.2.1",
+    "webpack": "^4.41.2",
+    "webpack-cli": "^3.3.10",
+    "ts-types-validator": "file:../../../ts-types-validator-1.1.4.tgz",
+    "typescript": "^4.2.4"
+  }
+}

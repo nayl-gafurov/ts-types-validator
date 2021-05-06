@@ -34,7 +34,9 @@
     "size": "size-limit",
     "analyze": "size-limit --why"
   },
-  "peerDependencies": {},
+  "peerDependencies": {
+    "typescript": ">= 2.4.1"
+  },
   "husky": {
     "hooks": {
       "pre-commit": "tsdx lint"
