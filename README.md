@@ -12,6 +12,13 @@ ts-types-validator is a TypeScript custom transformer that, based on the TypeScr
 npm i ts-types-validator --dev
 ```
 
+## Supported types
+
+- All primitives (string, number, boolean, null, undefined, symbol, bigint);
+- Functions
+- Arrays and tuples of primitives, functions, arrays and objects like a { [k: string]: T };
+- Objects like a { [k: string]: T }, where T - all of the above types.
+
 ## Usage
 
 ### Standalone
@@ -21,7 +28,7 @@ See [examples/standalone](https://github.com/nayl-gafurov/ts-types-validator/tre
 ```ts
 //compile.js
 const typesValidator = require("ts-types-validator").default;
-typesValidator(["./index.ts"]);
+typesValidator(["./index.ts"], compileOptions, transformerOptions);
 ```
 
 ```ts
@@ -74,7 +81,7 @@ export default {
   plugins: [
     resolve(),
     typescript({ transformers: [service => ({
-      before: [ keysTransformer(service.getProgram()) ],
+      before: [ transformer(service.getProgram(), transformerOptions) ],
       after: []
     })] })
   ]
@@ -107,7 +114,7 @@ module.exports =
         options: {
           getCustomTransformers: program => ({
             before: [
-              transformer(program)
+              transformer(program, transformerOptions)
             ]
           })
         }
