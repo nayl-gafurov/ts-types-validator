@@ -34,3 +34,22 @@
     "noEmit": true,
   }
 }
+
+
+// {
+//   "compilerOptions": {
+//     "target": "es2015",
+//     "module": "commonjs",
+//     "strict": true,
+//     "noEmitOnError": true,
+//     "noImplicitReturns": true,
+//     "noFallthroughCasesInSwitch": true,
+//     "esModuleInterop": true
+//   },
+//   "include": [
+//     "src"
+//   ],
+//   "exclude": [
+//     "node_modules"
+//   ]
+// }

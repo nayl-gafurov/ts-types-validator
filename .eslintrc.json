@@ -1,16 +1,25 @@
 {
   "parser": "@typescript-eslint/parser",
   "parserOptions": {
-    "project": ["./tsconfig.json", "tsconfig.eslint.json"],
+    "project": [
+      "./tsconfig.json",
+      "tsconfig.eslint.json"
+    ],
     "ecmaVersion": 2021, // Allows for the parsing of modern ECMAScript features
     "sourceType": "module" // Allows for the use of imports
   },
-  "plugins": ["@typescript-eslint", "prettier"],
+  "plugins": [
+    "@typescript-eslint",
+    "prettier"
+  ],
   "extends": [
     "eslint:recommended",
     "plugin:@typescript-eslint/eslint-recommended",
     "plugin:@typescript-eslint/recommended",
     "prettier",
     "prettier/@typescript-eslint"
-  ]
+  ],
+  "rules": {
+    "@typescript-eslint/no-use-before-define": "off"
+  }
 }

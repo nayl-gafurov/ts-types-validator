@@ -10,28 +10,70 @@ import {
   call,
   propAccess,
   func,
-  assignValue,
   identifier,
   str,
   letVar,
 } from './utils/operators/operators';
 import { getDeclarationsFromTypeReferenceNode, importSpecifierHandler } from './utils/utils';
 
+export interface TransformerOptions {
+  env?: 'browser' | 'node';
+  equateUndefinedAndNull?: boolean;
+  colorStyle?: 0 | 1 | 2;
+}
+
 const interfaceList: Map<string, ts.ArrowFunction | undefined> = new Map();
 const dataObjName = 'data';
 const argName = 'arg';
+const callback = 'onFalse';
 let intersectNodes: ts.InterfaceDeclaration[];
 let isIntersects = false;
-let browserEnv = false;
+let env: 'browser' | 'node' = 'node';
 let equateUndefinedAndNull = false;
+let colorStyle: 0 | 1 | 2 = 1;
+let color1: string, color2: string, color3: string;
+let hasCallback = false;
 
 export default function transformer(
   program: ts.Program,
-  opt?: { browserEnv?: boolean; equateUndefinedAndNull?: boolean }
+  opt?: TransformerOptions
 ): ts.TransformerFactory<ts.SourceFile> {
   if (opt) {
-    browserEnv = opt.browserEnv ? opt.browserEnv : false;
+    env = opt.env ? opt.env : 'browser';
     equateUndefinedAndNull = opt.equateUndefinedAndNull ? opt.equateUndefinedAndNull : false;
+    colorStyle = opt.colorStyle ? opt.colorStyle : 0;
+  }
+
+  switch (colorStyle) {
+    case 0:
+      if (env === 'browser') {
+        color1 = color2 = color3 = 'none';
+      } else {
+        color1 = color2 = color3 = '';
+      }
+      break;
+    case 1:
+      if (env === 'browser') {
+        color1 = 'yellow';
+        color2 = 'magenta';
+        color3 = 'cyan';
+      } else {
+        color1 = '\x1b[33m';
+        color2 = '\x1b[35m';
+        color3 = '\x1b[36m';
+      }
+      break;
+    case 2:
+      if (env === 'browser') {
+        color1 = 'red';
+        color2 = 'yellow';
+        color3 = 'magenta';
+      } else {
+        color1 = '\x1b[33m';
+        color2 = '\x1b[35m';
+        color3 = '\x1b[36m';
+      }
+      break;
   }
 
   return (context: ts.TransformationContext) => (file: ts.SourceFile): ts.SourceFile => {
@@ -64,29 +106,73 @@ function visiterForFunction(node: ts.Node, program: ts.Program): ts.Node | undef
       if (type !== undefined && type.kind !== 125) {
         let expression;
         let propsName;
+        let returnFunctionArgumentName: ts.Expression | undefined;
         const cm = new ChainManager(program);
 
-        if (ts.isTypeReferenceNode(type)) {
-          let declaration = getDeclarationsFromTypeReferenceNode(type, program);
-          declaration = importSpecifierHandler(declaration, program);
-
-          if (declaration) {
-            if (ts.isInterfaceDeclaration(declaration)) {
-              cm.init(declaration);
-              isIntersects = cm.intersectChains.length > 0;
-              intersectNodes = cm.intersectNodes;
-              expression = interfaceDeclarationHandler(declaration, program, true);
-              propsName = type.getText();
+        const secondArg = node.parameters[1];
+        if (secondArg && secondArg.type) {
+          if (
+            ts.isTypeLiteralNode(secondArg.type) &&
+            secondArg.type.members.find(
+              item =>
+                ts.isPropertySignature(item) &&
+                item.type &&
+                ts.isFunctionTypeNode(item.type) &&
+                item.name?.getText() === callback
+            )
+          ) {
+            hasCallback = true;
+          } else if (ts.isTypeReferenceNode(secondArg.type)) {
+            let declaration = getDeclarationsFromTypeReferenceNode(secondArg.type, program);
+            declaration = importSpecifierHandler(declaration, program);
+            if (declaration) {
+              if (
+                ts.isInterfaceDeclaration(declaration) &&
+                declaration.members.find(
+                  item =>
+                    ts.isPropertySignature(item) &&
+                    item.type &&
+                    ts.isFunctionTypeNode(item.type) &&
+                    item.name?.getText() === callback
+                )
+              ) {
+                hasCallback = true;
+              }
             }
           }
         }
-        if (ts.isTypeLiteralNode(type)) {
+
+        if (ts.isTypeReferenceNode(type)) {
+          if (type.typeName.getText() === 'Array' && type.typeArguments) {
+            expression = typeNodeHandler(type, program, ts.createIdentifier(typeParamName));
+            propsName = 'condition';
+            returnFunctionArgumentName = undefined;
+          } else {
+            let declaration = getDeclarationsFromTypeReferenceNode(type, program);
+            declaration = importSpecifierHandler(declaration, program);
+
+            if (declaration) {
+              if (ts.isInterfaceDeclaration(declaration)) {
+                cm.init(declaration);
+                isIntersects = cm.intersectChains.length > 0;
+                intersectNodes = cm.intersectNodes;
+                expression = interfaceDeclarationHandler(declaration, program, true);
+                propsName = type.getText();
+                returnFunctionArgumentName = ts.createIdentifier(typeParamName);
+              }
+            }
+          }
+        } else if (ts.isTypeLiteralNode(type)) {
           cm.init(type);
           isIntersects = cm.intersectChains.length > 0;
           intersectNodes = cm.intersectNodes;
-
           expression = interfaceDeclarationHandler(type, program, ts.createIdentifier(argName));
           propsName = 'object';
+          returnFunctionArgumentName = ts.createIdentifier(typeParamName);
+        } else {
+          expression = typeNodeHandler(type, program, ts.createIdentifier(typeParamName));
+          propsName = 'condition';
+          returnFunctionArgumentName = undefined;
         }
 
         if (expression && propsName) {
@@ -100,6 +186,8 @@ function visiterForFunction(node: ts.Node, program: ts.Program): ts.Node | undef
 
           const block: ts.Statement[] = [];
 
+          hasCallback && block.push(letVar('messageStack', ts.createArrayLiteral([], false)));
+
           if (cm.intersectChains.length > 0) {
             block.push(
               generateMapForIntersectNodes(intersectNodes.map(node => node.name.getText())),
@@ -109,10 +197,47 @@ function visiterForFunction(node: ts.Node, program: ts.Program): ts.Node | undef
 
           block.push(
             constVar(dataObjName, ts.createObjectLiteral(arrOfPropsAssignment, true)),
-            ts.createReturn(call(propAccess(dataObjName, propsName), [ts.createIdentifier(typeParamName)]))
+            constVar('result', call(propAccess(dataObjName, propsName), returnFunctionArgumentName))
           );
 
-          return func(name, block, typeParamName, exportModifier);
+          let args;
+
+          if (hasCallback) {
+            const secondArgName = secondArg.name.getText();
+            block.push(
+              _if(
+                and(
+                  not('result'),
+                  and(
+                    ts.createIdentifier(secondArgName),
+                    ts.createBinary(
+                      ts.createTypeOf(
+                        ts.createPropertyAccess(ts.createIdentifier(secondArgName), ts.createIdentifier(callback))
+                      ),
+                      ts.createToken(ts.SyntaxKind.EqualsEqualsEqualsToken),
+                      ts.createStringLiteral('function')
+                    )
+                  )
+                ),
+
+                ts.createExpressionStatement(
+                  ts.createCall(
+                    ts.createPropertyAccess(ts.createIdentifier(secondArgName), ts.createIdentifier(callback)),
+                    undefined,
+                    [ts.createIdentifier('messageStack')]
+                  )
+                )
+              )
+            );
+
+            args = [typeParamName, secondArgName];
+          } else {
+            args = typeParamName;
+          }
+
+          block.push(ts.createReturn(ts.createIdentifier('result')));
+
+          return func(name, block, args, exportModifier);
         }
       }
     }
@@ -277,22 +402,11 @@ function propertySignatureHandler(
   objIdentifier: ts.Identifier | ts.PropertyAccessExpression
 ): ts.ArrowFunction | undefined {
   const nodeType = node.type;
+
   if (nodeType) {
     const access = ts.createPropertyAccess(objIdentifier, ts.createIdentifier(node.name.getText()));
 
     const expression = typeHandler(nodeType, program, access);
-
-    const getFullAccessName = (access: ts.PropertyAccessExpression, result = ''): string => {
-      if (result.length > 0) {
-        result = `${access.name.text}.${result}`;
-      } else {
-        result = access.name.text;
-      }
-      if (ts.isPropertyAccessExpression(access.expression)) {
-        return getFullAccessName(access.expression, result);
-      }
-      return result;
-    };
 
     const resultVariable = (): ts.VariableStatement => {
       if (node.questionToken) {
@@ -305,50 +419,252 @@ function propertySignatureHandler(
       }
     };
 
-    const indexIdentifier = ts.createTemplateExpression(ts.createTemplateHead('[', '['), [
-      ts.createTemplateSpan(ts.createIdentifier('arrayIndex'), ts.createTemplateTail(']', ']')),
-    ]);
+    const { message, messageClean } = errorMessage(nodeType, objIdentifier);
+    const then = [consoleWarn(message)];
+    hasCallback && then.push(pushMessageStack(messageClean));
 
-    const block = [
-      resultVariable(),
-      _if(
-        not('result'),
-        consoleWarn(
-          browserEnv
-            ? [
-                str(getFullAccessName(access)),
-                isArrayReferenceNode(nodeType) ? indexIdentifier : str(''),
-                str(`MUST be type of: ${nodeType.getText()}`),
-              ]
-            : [
-                str('\x1b[33m' + getFullAccessName(access)),
-                isArrayReferenceNode(nodeType) ? indexIdentifier : str(''),
-                str('\x1b[36m MUST be type of: '),
-                str('\x1b[33m' + nodeType.getText() + '\x1b[39m'),
-              ]
-        )
-      ),
-      ts.createReturn(ts.createIdentifier('result')),
-    ];
+    const block = [resultVariable(), _if(not('result'), then), ts.createReturn(ts.createIdentifier('result'))];
 
-    if (isArrayReferenceNode(nodeType)) {
-      block.unshift(letVar('arrayIndex'));
-    }
+    // if (isHasArrayType(nodeType)) {
+    //   block.unshift(letVar('arrayIndex'));
+    // }
 
     return arrowFunc(block);
-  } else {
-    return;
   }
+
+  return undefined;
+}
+
+function typeNodeHandler(nodeType: ts.TypeNode, program: ts.Program, objPropsAccess: ts.Identifier): ts.ArrowFunction {
+  const expression = typeHandler(nodeType, program, objPropsAccess);
+
+  const resultVariable = (): ts.VariableStatement => {
+    return constVar('result', expression);
+  };
+
+  const { message, messageClean } = errorMessage(nodeType, objPropsAccess);
+  const then = [consoleWarn(message)];
+  hasCallback && then.push(pushMessageStack(messageClean));
+
+  const block = [resultVariable(), _if(not('result'), then), ts.createReturn(ts.createIdentifier('result'))];
+
+  return arrowFunc(block);
+}
+
+function getFullAccessName(access: ts.PropertyAccessExpression | ts.Identifier, result = ''): string {
+  if (ts.isIdentifier(access)) {
+    result = access.text;
+  } else {
+    if (result.length > 0) {
+      result = `${access.name.text}.${result}`;
+    } else {
+      result = access.name.text;
+    }
+    if (ts.isPropertyAccessExpression(access.expression)) {
+      return getFullAccessName(access.expression, result);
+    }
+  }
+  return result;
+}
+
+function errorMessage(
+  node: ts.TypeNode,
+  access: ts.PropertyAccessExpression | ts.Identifier,
+  showIndex: boolean | number = false
+): {
+  message: ts.Expression[];
+  messageClean: ts.Expression;
+} {
+  let message: ts.Expression[];
+
+  let indexIdentifier;
+  if (showIndex !== false) {
+    indexIdentifier =
+      typeof showIndex === 'number'
+        ? str(`[${showIndex}]`)
+        : ts.createTemplateExpression(ts.createTemplateHead('[', '['), [
+            ts.createTemplateSpan(ts.createIdentifier('index'), ts.createTemplateTail(']', ']')),
+          ]);
+  }
+
+  let messageClean: ts.Expression = str(getFullAccessName(access));
+  messageClean = indexIdentifier
+    ? ts.createBinary(messageClean, ts.createToken(ts.SyntaxKind.PlusToken), indexIdentifier)
+    : messageClean;
+  messageClean = ts.createBinary(
+    messageClean,
+    ts.createToken(ts.SyntaxKind.PlusToken),
+    str(` MUST be type of: ${node.getText()}`)
+  );
+
+  if (env === 'browser') {
+    let text: ts.Expression = str('%c' + getFullAccessName(access));
+    text = indexIdentifier
+      ? ts.createBinary(
+          text,
+          ts.createToken(ts.SyntaxKind.PlusToken),
+          ts.createBinary(str('%c'), ts.createToken(ts.SyntaxKind.PlusToken), indexIdentifier)
+        )
+      : text;
+    text = ts.createBinary(
+      text,
+      ts.createToken(ts.SyntaxKind.PlusToken),
+      str(` %cMUST be type of: %c${node.getText()}`)
+    );
+    message = [text];
+
+    message.push(str('color:' + color1));
+    indexIdentifier && message.push(str('color:' + color2));
+    message.push(str('color:' + color3));
+    message.push(str('color:' + color1));
+  } else {
+    let text: ts.Expression = str(color1 + getFullAccessName(access));
+    text = indexIdentifier
+      ? ts.createBinary(
+          text,
+          ts.createToken(ts.SyntaxKind.PlusToken),
+          ts.createBinary(str(color2), ts.createToken(ts.SyntaxKind.PlusToken), indexIdentifier)
+        )
+      : text;
+
+    message = [text];
+    message.push(str(color3 + 'MUST be type of:'), str(color1 + node.getText() + '\x1b[39m'));
+  }
+
+  return { message, messageClean };
+}
+
+function messageForTupleLength(
+  node: ts.TupleTypeNode,
+  objIdentifier: ts.Identifier | ts.PropertyAccessExpression
+): { message: ts.Expression[]; messageClean: ts.TemplateExpression } {
+  const messageClean = ts.createTemplateExpression(ts.createTemplateHead(`${getFullAccessName(objIdentifier)} has `), [
+    ts.createTemplateSpan(
+      ts.createPropertyAccess(objIdentifier, ts.createIdentifier('length')),
+      ts.createTemplateMiddle(' element(s) but MUST be ')
+    ),
+    ts.createTemplateSpan(ts.createNumericLiteral(node.elementTypes.length.toString()), ts.createTemplateTail('')),
+  ]);
+
+  let message: ts.Expression[];
+
+  if (env === 'browser') {
+    message = [
+      ts.createTemplateExpression(ts.createTemplateHead(`%c${getFullAccessName(objIdentifier)} has %c`), [
+        ts.createTemplateSpan(
+          ts.createPropertyAccess(objIdentifier, ts.createIdentifier('length')),
+          ts.createTemplateMiddle(' %celement(s) but MUST be %c')
+        ),
+        ts.createTemplateSpan(ts.createNumericLiteral(node.elementTypes.length.toString()), ts.createTemplateTail('')),
+      ]),
+    ];
+
+    message.push(str('color:' + color1), str('color:' + color2), str('color:' + color3), str('color:' + color2));
+  } else {
+    message = [
+      ts.createTemplateExpression(ts.createTemplateHead(`${color1}${getFullAccessName(objIdentifier)} has ${color2}`), [
+        ts.createTemplateSpan(
+          ts.createPropertyAccess(objIdentifier, ts.createIdentifier('length')),
+          ts.createTemplateMiddle(`${color3} element(s) but MUST be ${color2}`)
+        ),
+        ts.createTemplateSpan(ts.createNumericLiteral(node.elementTypes.length.toString()), ts.createTemplateTail('')),
+      ]),
+    ];
+  }
+  return { message, messageClean };
+}
+
+function pushMessageStack(message: ts.Expression): ts.ExpressionStatement {
+  return ts.createExpressionStatement(
+    ts.createCall(
+      ts.createPropertyAccess(ts.createIdentifier('messageStack'), ts.createIdentifier('push')),
+      undefined,
+      [message]
+    )
+  );
+}
+
+function tupleTypeNodeHandler(
+  node: ts.TupleTypeNode,
+  program: ts.Program,
+  objIdentifier: ts.PropertyAccessExpression | ts.Identifier
+): ts.Expression {
+  const resultConditions = ts.createArrayLiteral(
+    node.elementTypes.map((typeNode, index) => {
+      const { message, messageClean } = errorMessage(typeNode, objIdentifier, index);
+      const then = [consoleWarn(message)];
+      hasCallback && then.push(pushMessageStack(messageClean));
+
+      return arrowFunc(
+        [
+          constVar('condition', typeHandler(typeNode, program, ts.createIdentifier('item'))),
+          _if(not(identifier('condition')), then),
+          ts.createReturn(identifier('condition')),
+        ],
+        'item'
+      );
+    }),
+    false
+  );
+
+  const checker = constVar(
+    'condition',
+    ts.createCall(ts.createIdentifier('item'), undefined, [
+      ts.createElementAccess(objIdentifier, ts.createIdentifier('index')),
+    ])
+  );
+
+  const returnState = ts.createReturn(identifier('condition'));
+
+  const { message, messageClean } = messageForTupleLength(node, objIdentifier);
+  const then = [consoleWarn(message)];
+  hasCallback && then.push(pushMessageStack(messageClean));
+
+  const func = arrowFunc([checker, returnState], ['item', 'index']);
+  return and(
+    and(
+      isArray(objIdentifier),
+      ts.createCall(
+        ts.createParen(
+          arrowFunc([
+            constVar(
+              'condition',
+              ts.createBinary(
+                ts.createPropertyAccess(objIdentifier, ts.createIdentifier('length')),
+                ts.createToken(ts.SyntaxKind.EqualsEqualsEqualsToken),
+                ts.createNumericLiteral(node.elementTypes.length.toString())
+              )
+            ),
+            _if(not(identifier('condition')), then),
+            ts.createReturn(identifier('condition')),
+          ])
+        ),
+        undefined,
+        []
+      )
+    ),
+    every(resultConditions, func, { index: true })
+  );
 }
 
 function arrayReferenceNodeHandler(
-  node: ts.TypeReferenceNode,
+  node: ts.TypeReferenceNode | ts.ArrayTypeNode,
   program: ts.Program,
   objIdentifier: ts.PropertyAccessExpression | ts.Identifier
 ): ts.BinaryExpression {
-  const args = node.typeArguments as ts.NodeArray<ts.TypeNode>;
-  const resultCondition = constVar('condition', typeHandler(args[0], program, ts.createIdentifier('item')));
-  const condition = _if(not(identifier('condition')), ts.createExpressionStatement(assignValue('arrayIndex', 'index')));
+  let type;
+  if (ts.isArrayTypeNode(node)) {
+    type = node.elementType;
+  } else {
+    type = (node.typeArguments as ts.NodeArray<ts.TypeNode>)[0];
+  }
+
+  const { message, messageClean } = errorMessage(node, objIdentifier);
+  const then = [consoleWarn(message)];
+  hasCallback && then.push(pushMessageStack(messageClean));
+
+  const resultCondition = constVar('condition', typeHandler(type, program, ts.createIdentifier('item')));
+  const condition = _if(not(identifier('condition')), then);
   const returnState = ts.createReturn(identifier('condition'));
   const func = arrowFunc([resultCondition, condition, returnState], ['item', 'index']);
   return and(isArray(objIdentifier), every(objIdentifier, func, { index: true }));
@@ -378,13 +694,15 @@ function typeHandler(
     return nullKeywordHandler(objPropsAccess);
   } else if (ts.SyntaxKind[node.kind] === 'UndefinedKeyword') {
     return undefinedKeywordHandler(objPropsAccess);
+  } else if (ts.isArrayTypeNode(node)) {
+    return arrayReferenceNodeHandler(node, program, objPropsAccess);
+  } else if (ts.isParenthesizedTypeNode(node)) {
+    return typeHandler(node.type, program, objPropsAccess);
+  } else if (ts.isTupleTypeNode(node)) {
+    return tupleTypeNodeHandler(node, program, objPropsAccess);
   } else {
     return otherTypeHandler(node, objPropsAccess);
   }
-}
-
-function isArrayReferenceNode(node: ts.TypeNode): false | ts.NodeArray<ts.TypeNode> | undefined {
-  return ts.isTypeReferenceNode(node) && node.typeName.getText() === 'Array' && node.typeArguments;
 }
 
 function undefinedKeywordHandler(objPropsAccess: ts.PropertyAccessExpression | ts.Identifier): ts.BinaryExpression {
