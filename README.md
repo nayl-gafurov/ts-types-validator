@@ -21,6 +21,13 @@ npm i ts-types-validator --dev
 
 ## Usage
 
+You just need to declare the Type Guards function like this:
+```ts
+export declare function isFoo(obj: any, options:{onFalse:(msg: string[])=> any} ): obj is Foo;
+```
+and then after compiling the code a real function will be generated that can validate the types.
+
+The second argument of this function is optional. If it is defined, a callback can be passed to the generated function. This callback will be called if the value passed to the function is not validated. When a callback is called, an array of error messages is passed to it.
 ### Standalone
 
 See [examples/standalone](https://github.com/nayl-gafurov/ts-types-validator/tree/master/examples/standalone) for details.
