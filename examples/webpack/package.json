@@ -3,9 +3,9 @@
     "start": "webpack"
   },
   "devDependencies": {
-    "ts-loader": "^6.2.1",
-    "webpack": "^4.41.2",
-    "webpack-cli": "^3.3.10",
+    "ts-loader": "^9.4.2",
+    "webpack": "^5.75.0",
+    "webpack-cli": "^5.0.1",
     "ts-types-validator": "file:../../../ts-types-validator-1.1.4.tgz",
     "typescript": "^4.2.4"
   }
